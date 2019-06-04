@@ -1,6 +1,6 @@
 from kat.harness import Query
 
-from abstract_tests import DEV, AmbassadorTest, HTTP
+from abstract_tests import AmbassadorTest, HTTP
 
 
 class StatsdTest(AmbassadorTest):
@@ -27,6 +27,13 @@ case_sensitive: false
 prefix: /reset/
 rewrite: /RESET/
 service: statsdtest-statsd
+---
+apiVersion: ambassador/v0
+kind:  Mapping
+name:  metrics
+prefix: /metrics
+rewrite: /metrics
+service: http://127.0.0.1:8877
 '''
     }
 
@@ -56,9 +63,10 @@ service: statsdtest-statsd
             yield Query(self.url(self.name + "/"), phase=1)
 
         yield Query("http://statsdtest-statsd/DUMP/", phase=2)
+        yield Query(self.url("metrics"), phase=2)
 
     def check(self):
-        stats = self.results[-1].json or {}
+        stats = self.results[-2].json or {}
 
         cluster_stats = stats.get('cluster_http___statsdtest_http', {})
         rq_total = cluster_stats.get('upstream_rq_total', -1)
@@ -66,6 +74,19 @@ service: statsdtest-statsd
 
         assert rq_total == 1000, f'expected 1000 total calls, got {rq_total}'
         assert rq_200 > 990, f'expected 1000 successful calls, got {rq_200}'
+
+        metrics = self.results[-1].text
+        wanted_metric = 'envoy_cluster_internal_upstream_rq'
+        wanted_status = 'envoy_response_code="200"'
+        wanted_cluster_name = 'envoy_cluster_name="cluster_http___statsdtest_http'
+
+        found = False
+
+        for line in metrics.split("\n"):
+            if wanted_metric in line and wanted_status in line and wanted_cluster_name in line:
+                found = True
+
+        assert found, 'wanted metrics not found in Prometheus metrics'
 
 
 class DogstatsdTest(AmbassadorTest):
