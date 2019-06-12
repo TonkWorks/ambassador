@@ -135,9 +135,13 @@ class ResourceFetcher:
         self.finalize()
 
     def parse_watt(self, serialization: str) -> None:
+        basedir = os.environ.get('AMBASSADOR_CONFIG_BASE_DIR', '/ambassador')
 
-        if os.path.isfile(os.path.abspath('.ambassador_ignore_crds')):
-            self.aconf.post_error("Ambassador could not find all the required CRDs. Please visit https://www.getambassador.io/reference/core/crds/ for more information. You can continue using Ambassador via Kubernetes annotations, any configuration via CRDs will be ignored...")
+        if os.path.isfile(os.path.join(basedir, '.ambassador_ignore_crds')):
+            self.aconf.post_error("Ambassador could not find core CRD definitions. Please visit https://www.getambassador.io/reference/core/crds/ for more information. You can continue using Ambassador via Kubernetes annotations, any configuration via CRDs will be ignored...")
+
+        if os.path.isfile(os.path.join(basedir, '.ambassador_ignore_crds_2')):
+            self.aconf.post_error("Ambassador could not find Resolver type CRD definitions. Please visit https://www.getambassador.io/reference/core/crds/ for more information. You can continue using Ambassador via Kubernetes annotations, any configuration via CRDs will be ignored...")
 
         try:
             watt_dict = json.loads(serialization)
@@ -210,7 +214,7 @@ class ResourceFetcher:
         metadata = obj.get('metadata') or {}
         name = metadata.get('name')
         namespace = metadata.get('namespace') or 'default'
-        spec = obj.get('spec')
+        spec = obj.get('spec') or {}
 
         if not name:
             self.logger.debug(f'{self.location}: ignoring K8s {kind} CRD, no name')
@@ -220,9 +224,9 @@ class ResourceFetcher:
             self.logger.debug(f'{self.location}: ignoring K8s {kind} CRD {name}: no apiVersion')
             return
 
-        if not spec:
-            self.logger.debug(f'{self.location}: ignoring K8s {kind} CRD {name}: no spec')
-            return
+        # if not spec:
+        #     self.logger.debug(f'{self.location}: ignoring K8s {kind} CRD {name}: no spec')
+        #     return
 
         # We use this resource identifier as a key into self.k8s_services, and of course for logging .
         resource_identifier = f'{name}.{namespace}'

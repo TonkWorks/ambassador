@@ -29,7 +29,7 @@ metadata:
 spec:
   containers:
   - name: backend
-    image: quay.io/datawire/kat-backend:12
+    image: quay.io/datawire/kat-backend:13
     imagePullPolicy: Always
     ports:
     - containerPort: 8080
@@ -56,7 +56,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: quay.io/datawire/kat-backend:12
+        image: quay.io/datawire/kat-backend:13
         imagePullPolicy: Always
         # ports:
         # {ports}
@@ -94,7 +94,7 @@ metadata:
 spec:
   containers:
   - name: backend
-    image: quay.io/datawire/kat-backend:12
+    image: quay.io/datawire/kat-backend:13
     imagePullPolicy: Always
     ports:
     - containerPort: 8080
@@ -133,7 +133,7 @@ metadata:
 spec:
   containers:
   - name: backend
-    image: quay.io/datawire/kat-backend:12
+    image: quay.io/datawire/kat-backend:13
     imagePullPolicy: Always
     ports:
     - containerPort: 8080
@@ -172,7 +172,7 @@ metadata:
 spec:
   containers:
   - name: backend
-    image: quay.io/datawire/kat-backend:12
+    image: quay.io/datawire/kat-backend:13
     imagePullPolicy: Always
     ports:
     - containerPort: 8080
@@ -474,7 +474,15 @@ metadata:
   labels:
     service: {self.path.k8s}
 spec:
+  securityContext:
+    runAsUser: 8888
   serviceAccountName: {self.path.k8s}
+  restartPolicy: Always
+  volumes:
+    - name: scratchpad
+      emptyDir:
+        medium: Memory
+        sizeLimit: "45Mi"
   containers:
   - name: ambassador
     image: {image}
@@ -488,6 +496,11 @@ spec:
       value: {self.path.k8s}
     - name: AMBASSADOR_SNAPSHOT_COUNT
       value: "0"
+    - name: AMBASSADOR_CONFIG_BASE_DIR
+      value: "/tmp/ambassador"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true  
     livenessProbe:
       httpGet:
         path: /ambassador/v0/check_alive
@@ -502,7 +515,9 @@ spec:
       initialDelaySeconds: 30
       periodSeconds: 10
       failureThreshold: 6
-  restartPolicy: Always
+    volumeMounts:
+      - mountPath: /tmp/
+        name: scratchpad
 """
 
 HTTPBIN = """
